@@ -1,61 +1,18 @@
 from datetime import datetime
-import pandas as pd
 from wikidataintegrator import wdi_core
 
 
-def create_item(doc):
-    if doc.doc_type == "mot":
-        return create_motion(doc)
-    elif doc.doc_type == "prop":
-        return create_proposition(doc)
-    return
-
-
-def create_motion(doc):
-    data = []
-    now = datetime.now().strftime("+%Y-%m-%dT00:00:00Z")
-
+def create_reference(doc):
     ref = []
-    ref.append(
-        wdi_core.WDUrl(
-            f"http://data.riksdagen.se/dokument/{doc.doc_id}",
-            prop_nr="P854",
-            is_reference=True,
-        )
-    )
+    now = datetime.now().strftime("+%Y-%m-%dT00:00:00Z")
+    ref.append(wdi_core.WDUrl(doc.html, prop_nr="P854", is_reference=True))
     ref.append(wdi_core.WDTime(now, prop_nr="P813", is_reference=True))
     ref.append(wdi_core.WDMonolingualText(doc.title, language="sv", prop_nr="P1476", is_reference=True))
+    return ref
 
-    num_qual = wdi_core.WDString(str(doc.ordinal), prop_nr="P1545", is_qualifier=True)
-    det_qual = wdi_core.WDItemID("Q80211245", prop_nr="P459", is_qualifier=True)
 
-    instance = wdi_core.WDItemID(doc.subtype, prop_nr="P31", references=[ref])
-    jurisdiction = wdi_core.WDItemID("Q34", prop_nr="P1001")
-    title = wdi_core.WDMonolingualText(doc.title, language="sv", prop_nr="P1476", references=[ref])
-    series = wdi_core.WDItemID(doc.series, prop_nr="P179", qualifiers=[num_qual])
-    lang = wdi_core.WDItemID("Q9027", prop_nr="P407")
-    date = wdi_core.WDTime(doc.date, prop_nr="P577", references=[ref])
-    legal_ref = wdi_core.WDString(f"mot. {doc.session}:{doc.ordinal}", prop_nr="P1031")
-    copyright = wdi_core.WDItemID("Q19652", prop_nr="P6216", qualifiers=[det_qual])
-
-    html_qual = wdi_core.WDItemID("Q62626012", prop_nr="P2701", is_qualifier=True)
-    available_html = wdi_core.WDUrl(doc.html, prop_nr="P953", qualifiers=[html_qual])
-
-    xml_qual = wdi_core.WDItemID("Q3033641", prop_nr="P2701", is_qualifier=True)
-    available_xml = wdi_core.WDUrl(doc.xml, prop_nr="P953", qualifiers=[xml_qual])
-
-    pdf_qual = wdi_core.WDItemID("Q42332", prop_nr="P2701", is_qualifier=True)
-    available_pdf = wdi_core.WDUrl(doc.pdf, prop_nr="P953", qualifiers=[pdf_qual])
-
-    if doc.prop:
-        prop = wdi_core.WDItemID(doc.prop, prop_nr="P1478")
-
-    if doc.committee:
-        committee = wdi_core.WDItemID(doc.committee, prop_nr="P7727", references=[ref])
-    else:
-        committee = None
-    code = wdi_core.WDExternalID(doc.doc_id, "P8433")
-
+def create_authors(doc):
+    ref = create_reference(doc)
     signs = []
     over_one = len(doc.authors) > 1
     sign_codes = []
@@ -69,109 +26,128 @@ def create_motion(doc):
         else:
             obj = wdi_core.WDItemID(person["qid"], prop_nr="P50", references=[ref])
         signs.append(obj)
-
-    data = [
-        instance,
-        jurisdiction,
-        title,
-        series,
-        lang,
-        date,
-        legal_ref,
-        copyright,
-        available_html,
-        available_xml,
-        available_pdf,
-        code,
-    ]
-
-    if not pd.isna(doc.prop):
-        data.append(prop)
-
-    if committee:
-        data.append(committee)
-
-    data.extend(signs)
-
-    item = wdi_core.WDItemEngine(data=data, new_item=True)
-    item.set_label(doc.title, lang="sv")
-    label_name = doc.authors[0]["namn"]
-    label_date = doc.date[1:5]
-    if over_one:
-        et_al_sv, et_al_en = " m.fl. ", " et al. "
-        label_name = label_name.replace("av ", "")
-    else:
-        et_al_sv = et_al_en = " "
-    item.set_description(f"motion av {label_name}{et_al_sv}från {label_date}", lang="sv")
-    item.set_description(f"motion by {label_name}{et_al_en}from {label_date}", lang="en")
-
-    return item
+    return signs
 
 
-def create_proposition(doc):
-    data = []
-    now = datetime.now().strftime("+%Y-%m-%dT00:00:00Z")
+def create_descriptions(doc):
+    descriptions = {}
 
-    ref = []
-    ref.append(
-        wdi_core.WDUrl(
-            f"http://data.riksdagen.se/dokument/{doc.doc_id}",
-            prop_nr="P854",
-            is_reference=True,
-        )
-    )
-    ref.append(wdi_core.WDTime(now, prop_nr="P813", is_reference=True))
-    ref.append(wdi_core.WDMonolingualText(doc.title, language="sv", prop_nr="P1476", is_reference=True))
+    if doc.doc_type == "mot":
+        label_name = doc.authors[0]["namn"]
+        label_date = doc.date[1:5]
+        if len(doc.authors) > 1:
+            et_al_sv, et_al_en = " m.fl. ", " et al. "
+            label_name = label_name.replace("av ", "")
+        else:
+            et_al_sv = et_al_en = " "
+        descriptions["sv"] = f"motion av {label_name}{et_al_sv}från {label_date}"
+        descriptions["en"] = f"motion by {label_name}{et_al_en}from {label_date}"
+    elif doc.doc_type == "prop":
+        descriptions["sv"] = f"proposition i Riksdagen från {doc.date[1:11]}"
+        descriptions["en"] = f"proposition in the Riksdag from {doc.date[1:11]}"
 
+    return descriptions
+
+
+def create_jurisdiction():
+    return wdi_core.WDItemID("Q34", prop_nr="P1001")
+
+
+def create_title(doc):
+    ref = create_reference()
+    return wdi_core.WDMonolingualText(doc.title, language="sv", prop_nr="P1476", references=[ref])
+
+
+def create_series(doc):
     num_qual = wdi_core.WDString(str(doc.ordinal), prop_nr="P1545", is_qualifier=True)
-    det_qual = wdi_core.WDItemID("Q80211245", prop_nr="P459", is_qualifier=True)
-
-    instance = wdi_core.WDItemID("Q686822", prop_nr="P31", references=[ref])
-    jurisdiction = wdi_core.WDItemID("Q34", prop_nr="P1001")
-    title = wdi_core.WDMonolingualText(doc.title, language="sv", prop_nr="P1476", references=[ref])
     series = wdi_core.WDItemID(doc.series, prop_nr="P179", qualifiers=[num_qual])
-    lang = wdi_core.WDItemID("Q9027", prop_nr="P407")
-    date = wdi_core.WDTime(doc.date, prop_nr="P577", references=[ref])
-    legal_ref = wdi_core.WDString(f"mot. {doc.session}:{doc.ordinal}", prop_nr="P1031")
-    copyright = wdi_core.WDItemID("Q19652", prop_nr="P6216", qualifiers=[det_qual])
+    return series
 
+
+def create_lang():
+    return wdi_core.WDItemID("Q9027", prop_nr="P407")
+
+
+def create_date(doc):
+    ref = create_reference()
+    return wdi_core.WDTime(doc.date, prop_nr="P577", references=[ref])
+
+
+def create_legal_ref(doc):
+    return wdi_core.WDString(f"{doc.doc_type}. {doc.session}:{doc.ordinal}", prop_nr="P1031")
+
+
+def create_copyright(doc):
+    det_qual = wdi_core.WDItemID("Q80211245", prop_nr="P459", is_qualifier=True)
+    copyright = wdi_core.WDItemID("Q19652", prop_nr="P6216", qualifiers=[det_qual])
+    return copyright
+
+
+def create_resource_links(doc):
+    links = []
     html_qual = wdi_core.WDItemID("Q62626012", prop_nr="P2701", is_qualifier=True)
-    available_html = wdi_core.WDUrl(doc.html, prop_nr="P953", qualifiers=[html_qual])
+    links.append(wdi_core.WDUrl(doc.html, prop_nr="P953", qualifiers=[html_qual]))
 
     xml_qual = wdi_core.WDItemID("Q3033641", prop_nr="P2701", is_qualifier=True)
-    available_xml = wdi_core.WDUrl(doc.xml, prop_nr="P953", qualifiers=[xml_qual])
+    links.append(wdi_core.WDUrl(doc.xml, prop_nr="P953", qualifiers=[xml_qual]))
 
     pdf_qual = wdi_core.WDItemID("Q42332", prop_nr="P2701", is_qualifier=True)
-    available_pdf = wdi_core.WDUrl(doc.pdf, prop_nr="P953", qualifiers=[pdf_qual])
+    links.append(wdi_core.WDUrl(doc.pdf, prop_nr="P953", qualifiers=[pdf_qual]))
 
+    return links
+
+
+def create_riksdagen_id(doc):
+    return wdi_core.WDExternalID(doc.doc_id, "P8433")
+
+
+def create_committee(doc):
+    ref = create_reference(doc)
+    return wdi_core.WDItemID(doc.committee, prop_nr="P7727", references=[ref])
+
+
+def create_instance_of(doc):
+    ref = create_reference(doc)
+    if doc.doc_type == "mot":
+        return wdi_core.WDItemID(doc.subtype, prop_nr="P31", references=[ref])
+    elif doc.doc_type == "prop":
+        return wdi_core.WDItemID("Q686822", prop_nr="P31", references=[ref])
+
+
+def create_caused_by(doc):
+    return wdi_core.WDItemID(doc.prop, prop_nr="P1478")
+
+
+def create_item(doc):
+    data = []
+
+    data.append(create_jurisdiction())
+    data.append(create_reference(doc))
+    data.append(create_series(doc))
+    data.append(create_lang())
+    data.append(create_date())
+    data.append(create_legal_ref(doc))
+    data.append(create_copyright())
+    data.extend(create_resource_links(doc))
+    data.append(create_riksdagen_id(doc))
+    data.append(create_instance_of(doc))
+
+    # Optional fields
     if doc.committee:
-        committee = wdi_core.WDItemID(doc.committee, prop_nr="P7727", references=[ref])
-    else:
-        committee = None
-    code = wdi_core.WDExternalID(doc.doc_id, "P8433")
+        data.append(create_committee(doc))
 
-    data = [
-        instance,
-        jurisdiction,
-        title,
-        series,
-        lang,
-        date,
-        legal_ref,
-        copyright,
-        available_html,
-        available_xml,
-        available_pdf,
-        code,
-    ]
+    # Doc type specific fields
+    if doc.doc_type == "mot":
+        data.extend(create_authors(doc))
 
-    if committee:
-        data.append(committee)
+        if doc.prop:
+            data.append(create_caused_by(doc))
 
     item = wdi_core.WDItemEngine(data=data, new_item=True)
     item.set_label(doc.title, lang="sv")
 
-    item.set_description(f"proposition i Riksdagen från {doc.date[1:11]}", lang="sv")
-    item.set_description(f"proposition in the Riksdag from {doc.date[1:11]}", lang="en")
+    descriptions = create_descriptions(doc)
+    item.set_description(descriptions["sv"], lang="sv")
+    item.set_description(descriptions["en"], lang="en")
 
     return item

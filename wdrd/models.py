@@ -13,7 +13,7 @@ class Motion:
     session: str
     subtype: str
     committee: str
-    ordinal: int
+    ordinal: str
     authors: list
     attachment: dict
     doc_type: str = "mot"
@@ -68,7 +68,7 @@ class Proposition:
     session: str
     subtype: str
     committee: str
-    ordinal: int
+    ordinal: str
     attachment: dict
     doc_type: str = "prop"
 
@@ -101,28 +101,28 @@ class DocCollection:
             if self.doc_type == "mot":
                 self.docs.append(
                     Motion(
-                        doc["id"],
-                        doc["datum"],
-                        doc["titel"],
-                        doc["rm"],
-                        doc["subtyp"],
-                        doc["organ"],
-                        int(doc["beteckning"]),
-                        doc["dokintressent"]["intressent"],
-                        doc["filbilaga"],
+                        doc_id=doc["id"],
+                        date=doc["datum"],
+                        title=doc["titel"],
+                        session=doc["rm"],
+                        subtype=doc["subtyp"],
+                        committe=doc["organ"],
+                        ordinal=doc["beteckning"],
+                        authors=doc["dokintressent"]["intressent"],
+                        attachment=doc["filbilaga"],
                     )
                 )
             elif self.doc_type == "prop":
                 self.docs.append(
                     Proposition(
-                        doc["id"],
-                        doc["datum"],
-                        doc["titel"],
-                        doc["rm"],
-                        doc["subtyp"],
-                        doc["organ"],
-                        int(doc["beteckning"]),
-                        doc["filbilaga"],
+                        doc_id=doc["id"],
+                        date=doc["datum"],
+                        title=doc["titel"],
+                        session=doc["rm"],
+                        subtype=doc["subtyp"],
+                        committe=doc["organ"],
+                        ordinal=doc["beteckning"],
+                        attachment=doc["filbilaga"],
                     )
                 )
 
