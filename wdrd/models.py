@@ -16,6 +16,7 @@ class Motion:
     ordinal: int
     authors: list
     attachment: dict
+    doc_type: str = "mot"
 
     def __post_init__(self):
         date_fmt = "+%Y-%m-%dT%H:%M:%SZ"
@@ -59,27 +60,84 @@ class Motion:
         return None
 
 
-class MotionCollection:
+@dataclass
+class Proposition:
+    doc_id: str
+    date: str
+    title: str
+    session: str
+    subtype: str
+    committee: str
+    ordinal: int
+    attachment: dict
+    doc_type: str = "prop"
+
+    def __post_init__(self):
+        date_fmt = "+%Y-%m-%dT%H:%M:%SZ"
+        self.title = self.title.strip()
+        self.committee = cfg.committees.get(self.committee, None) if self.committee != "" else None
+        self.date = datetime.strptime(self.date, "%Y-%m-%d").strftime(date_fmt)
+        self.html = f"http://data.riksdagen.se/dokument/{self.doc_id}"
+        self.xml = f"http://data.riksdagen.se/dokumentstatus/{self.doc_id}"
+        self.pdf = self.extract_pdf()
+        self.series = wd.get_series_qid(self.session, "prop")
+
+    def extract_pdf(self):
+        if self.attachment is None:
+            return None
+        return self.attachment["fil"]["url"]
+
+
+class DocCollection:
     def __init__(self, docs: list):
-        self.docs = []
+        self.session = self.docs[0].session
+        self.doc_type = self.docs[0].doc_type
+        docs = self.remove_invalid_docs(docs)
+        docs = self.remove_existing_docs(docs)
+        self.prepare_docs(docs)
+
+    def prepare_docs(self, docs):
         for doc in docs:
-            if doc["subtyp"] == "":
+            if self.doc_type == "mot":
+                self.docs.append(
+                    Motion(
+                        doc["id"],
+                        doc["datum"],
+                        doc["titel"],
+                        doc["rm"],
+                        doc["subtyp"],
+                        doc["organ"],
+                        int(doc["beteckning"]),
+                        doc["dokintressent"]["intressent"],
+                        doc["filbilaga"],
+                    )
+                )
+            elif self.doc_type == "prop":
+                self.docs.append(
+                    Proposition(
+                        doc["id"],
+                        doc["datum"],
+                        doc["titel"],
+                        doc["rm"],
+                        doc["subtyp"],
+                        doc["organ"],
+                        int(doc["beteckning"]),
+                        doc["filbilaga"],
+                    )
+                )
+
+    def remove_invalid_docs(self, docs):
+        filtered_docs = []
+        for doc in docs:
+            if self.doc_type == "mot" and doc["subtyp"] == "":
+                continue
+            if self.doc_type == "mot" and doc["subtyp"] != "prop":
                 continue
             if doc["titel"] == "Motionen utgår":
                 continue
-            motion = Motion(
-                doc["id"],
-                doc["datum"],
-                doc["titel"],
-                doc["rm"],
-                doc["subtyp"],
-                doc["organ"],
-                int(doc["beteckning"]),
-                doc["dokintressent"]["intressent"],
-                doc["filbilaga"],
-            )
-            self.docs.append(motion)
+            filtered_docs.append(doc)
+        return filtered_docs
 
-    def remove_existing_docs(self):
-        existing_docs = wd.get_series_docs(self.docs[0].session, "mot")
-        self.docs = [x for x in self.docs if x.doc_id not in existing_docs.code.to_list()]
+    def remove_existing_docs(self, docs):
+        existing_docs = wd.get_series_docs(self.session, self.doc_type)
+        return [x for x in docs if x["id"] not in existing_docs.code.to_list()]
