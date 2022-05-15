@@ -37,12 +37,14 @@ def get_series_docs(session: str, doc_type: str) -> pd.DataFrame:
         'SERVICE wikibase:label { bd:serviceParam wikibase:language "sv". }}'
     )
     df = wdi_core.WDItemEngine.execute_sparql_query(query, as_dataframe=True)
+    if df.empty:
+        return pd.DataFrame({"item": [], "itemLabel": [], "code": [], "ref": []})
     df["item"] = df["item"].str.split("/", expand=True)[4]
     return df
 
 
 @cache
-def get_personal_identifier_mapping() -> pd.DataFrame:
+def get_people() -> pd.DataFrame:
     query = """SELECT ?item ?itemLabel ?code WHERE {
     ?item wdt:P1214 ?code .
     
@@ -51,4 +53,4 @@ def get_personal_identifier_mapping() -> pd.DataFrame:
 
     df = wdi_core.WDItemEngine.execute_sparql_query(query, as_dataframe=True)
     df.item = df.item.str.split("/", expand=True)[4]
-    return df.set_index("code")["item"].to_dict()
+    return df
