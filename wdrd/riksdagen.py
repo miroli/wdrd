@@ -19,3 +19,10 @@ def get_series_docs(session: str, doc_type: str) -> list:
             finished = True
 
     return docs
+
+
+def get_doc_metadata(doc_id: str) -> dict:
+    url = f"https://data.riksdagen.se/dokument/{doc_id}.json"
+    resp = requests.get(url)
+    data = resp.json()
+    return data

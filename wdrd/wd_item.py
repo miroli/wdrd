@@ -19,6 +19,7 @@ def create_authors(doc):
         return None
     ref = create_reference(doc)
     snak_type = "value"
+    prop = "P1891" if doc.doc_type == "prop" else "P50"
     signs = []
     over_one = len(doc.authors) > 1
     sign_codes = []
@@ -26,15 +27,17 @@ def create_authors(doc):
         if person["qid"] in sign_codes:
             continue
         if person["qid"] is None:
-            snak_type = 'somevalue'
+            snak_type = "somevalue"
         else:
-            snak_type = 'value'
+            snak_type = "value"
         sign_codes.append(person["qid"])
         if over_one:
             sign_qual = wdi_core.WDString(str(i + 1), prop_nr="P1545", is_qualifier=True)
-            obj = wdi_core.WDItemID(person["qid"], snak_type=snak_type, prop_nr="P50", references=[ref], qualifiers=[sign_qual])
+            obj = wdi_core.WDItemID(
+                person["qid"], snak_type=snak_type, prop_nr=prop, references=[ref], qualifiers=[sign_qual]
+            )
         else:
-            obj = wdi_core.WDItemID(person["qid"], snak_type=snak_type, prop_nr="P50", references=[ref])
+            obj = wdi_core.WDItemID(person["qid"], snak_type=snak_type, prop_nr=prop, references=[ref])
         signs.append(obj)
     return signs
 

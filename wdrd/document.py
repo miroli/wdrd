@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 from . import sparql as wd
 from . import config as cfg
+from .riksdagen import get_doc_metadata
 
 
 class Document:
@@ -84,13 +85,18 @@ class Document:
     @property
     def authors(self):
         if self._doc["dokintressent"] is None:
-            return None
+            metadata = get_doc_metadata(self.doc_id)
+            meta_authors = metadata["dokumentstatus"]["dokintressent"]
+            if meta_authors is None:
+                return None
+            else:
+                self._doc["dokintressent"] = meta_authors
         authors = []
         people = wd.get_people()
         id_mapping = people.set_index("code")["item"].to_dict()
 
         for person in self._doc["dokintressent"]["intressent"]:
-            if person["roll"] != "undertecknare":
+            if person["roll"] != "undertecknare" and self._doc["typ"] != "prop":
                 continue
             try:
                 authors.append({"name": person["namn"], "qid": id_mapping[person["intressent_id"]]})
@@ -132,7 +138,7 @@ class DocumentCollection:
     def _remove_invalid_docs(self, docs):
         filtered_docs = []
         for doc in docs:
-            #if self.doc_type == "mot" and doc["subtyp"] == "":
+            # if self.doc_type == "mot" and doc["subtyp"] == "":
             #    continue
             if self.doc_type == "prop" and doc["subtyp"] != "prop":
                 continue
