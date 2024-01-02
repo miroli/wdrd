@@ -82,13 +82,13 @@ def create_descriptions(doc):
         descriptions["sv"] = f"motion av {label_name}{et_al_sv}från {label_date}"
         descriptions["en"] = f"motion by {label_name}{et_al_en}from {label_date}"
     elif doc.doc_type == "prop":
-        descriptions["sv"] = f"proposition i Riksdagen från {doc.date[1:11]}"
+        descriptions["sv"] = f"proposition i riksdagen från {doc.date[1:11]}"
         descriptions["en"] = f"proposition in the Riksdag from {doc.date[1:11]}"
     elif doc.doc_type == "ip":
         label_author = doc.authors[0]["name"]
         label_respondent = doc.respondent["name"]
         label_date = doc.date[1:11]
-        descriptions["sv"] = f"interpellation i Riksdagen från {label_author} till {label_respondent}, {label_date}"
+        descriptions["sv"] = f"interpellation i riksdagen från {label_author} till {label_respondent}, {label_date}"
         descriptions["en"] = f"interpellation in the Riksdag from {label_author} to {label_respondent}, {label_date}"
     elif doc.doc_type == "fr":
         label_author = doc.authors[0]["name"]
