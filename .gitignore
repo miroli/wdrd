@@ -1,0 +1,7 @@
+user-config.py
+user-password.py
+.ipynb_checkpoints
+.vscode/
+.DS_Store
+*/__pycache__/*
+.env
