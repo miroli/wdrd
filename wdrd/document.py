@@ -24,7 +24,7 @@ class Document:
 
     @property
     def title(self):
-        return self._doc["titel"].strip()
+        return self._doc["titel"].replace("\n", "").replace("\t", "").strip()
 
     @property
     def series(self):
@@ -74,6 +74,8 @@ class Document:
     @property
     def cause(self):
         props = wd.get_series_docs(self._doc["rm"], "prop").copy()
+        if props.empty:
+            return None
         props.ref = props.ref.str.split(expand=True)[1].str.strip()
         prop_ref = re.search("prop\. (\d+/\d+:\d+)", self.title, re.I)
         if prop_ref:
@@ -86,7 +88,7 @@ class Document:
     def authors(self):
         if self._doc["dokintressent"] is None:
             metadata = get_doc_metadata(self.doc_id)
-            meta_authors = metadata["dokumentstatus"]["dokintressent"]
+            meta_authors = metadata["dokumentstatus"].get("dokintressent")
             if meta_authors is None:
                 return None
             else:
